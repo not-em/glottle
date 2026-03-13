@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>glottle</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple-light: #EEEDFE; --purple-mid: #AFA9EC; --purple-dark: #3C3489; --purple-text: #26215C;
+      --teal-light:   #E1F5EE; --teal-mid:   #5DCAA5; --teal-dark:   #085041; --teal-text:   #04342C;
+      --coral-light:  #FAECE7; --coral-mid:  #F0997B; --coral-dark:  #712B13; --coral-text:  #4A1B0C;
+      --bg:    #ffffff;
+      --bg2:   #f5f4f0;
+      --text:  #1a1a18;
+      --text2: #6b6b67;
+      --text3: #9b9b97;
+      --border: rgba(0,0,0,0.12);
+      --radius-sm: 20px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --purple-light: #26215C; --purple-mid: #534AB7; --purple-dark: #CECBF6; --purple-text: #EEEDFE;
+        --teal-light:   #04342C; --teal-mid:   #0F6E56; --teal-dark:   #9FE1CB; --teal-text:   #E1F5EE;
+        --coral-light:  #4A1B0C; --coral-mid:  #993C1D; --coral-dark:  #F5C4B3; --coral-text:  #FAECE7;
+        --bg:    #1a1a18; --bg2: #242422;
+        --text:  #f0efeb; --text2: #a0a09c; --text3: #6b6b67;
+        --border: rgba(255,255,255,0.12);
+      }
+    }
+    :root[data-theme="dark"] {
+      --purple-light: #26215C; --purple-mid: #534AB7; --purple-dark: #CECBF6; --purple-text: #EEEDFE;
+      --teal-light:   #04342C; --teal-mid:   #0F6E56; --teal-dark:   #9FE1CB; --teal-text:   #E1F5EE;
+      --coral-light:  #4A1B0C; --coral-mid:  #993C1D; --coral-dark:  #F5C4B3; --coral-text:  #FAECE7;
+      --bg:    #1a1a18; --bg2: #242422;
+      --text:  #f0efeb; --text2: #a0a09c; --text3: #6b6b67;
+      --border: rgba(255,255,255,0.12);
+    }
+
+    .theme-toggle {
+      position: fixed;
+      top: 1.25rem; right: 1.25rem;
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+      z-index: 10;
+    }
+    .theme-toggle:hover { background: var(--border); }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    .container { max-width: 760px; margin: 0 auto; }
+
+    header { margin-bottom: 2.5rem; }
+    header h1 { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 4px; }
+    header p  { font-size: 14px; color: var(--text2); }
+
+    .section { margin-bottom: 1.5rem; }
+
+    .shelf-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text3);
+      margin-bottom: 8px;
+    }
+
+    .search-row { margin-bottom: 8px; }
+
+    .search-input {
+      width: 100%;
+      max-width: 280px;
+      font-size: 13px;
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: var(--text3); }
+    .search-input::placeholder { color: var(--text3); }
+
+    .shelf { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+
+    .tile {
+      padding: 5px 11px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      cursor: pointer;
+      border: 0.5px solid;
+      transition: opacity 0.12s, transform 0.08s;
+      user-select: none;
+    }
+    .tile:hover  { opacity: 0.75; transform: translateY(-1px); }
+    .tile:active { transform: translateY(0); }
+    .tile.used   { opacity: 0.45; cursor: pointer; }
+    .tile.used:hover { opacity: 0.65; transform: translateY(-1px); }
+
+    .pre-tile  { background: var(--purple-light); color: var(--purple-dark); border-color: var(--purple-mid); }
+    .root-tile { background: var(--teal-light);   color: var(--teal-dark);   border-color: var(--teal-mid); }
+    .suf-tile  { background: var(--coral-light);  color: var(--coral-dark);  border-color: var(--coral-mid); }
+
+    .no-results { font-size: 12px; color: var(--text3); font-style: italic; }
+
+    .assembly-label-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .assembly-hint { font-size: 10px; color: var(--text3); }
+
+    .assembly {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 0.5px solid var(--border);
+      margin-bottom: 1rem;
+      min-height: 88px;
+    }
+
+    .assembly-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      font-size: 13px;
+      color: var(--text3);
+      font-style: italic;
+    }
+
+    .block {
+      flex: 1 1 auto;
+      min-width: 64px;
+      padding: 1rem 0.9rem 0.8rem;
+      cursor: grab;
+      position: relative;
+      user-select: none;
+      transition: opacity 0.12s;
+    }
+    .block:active   { cursor: grabbing; }
+    .block.dragging { opacity: 0.35; }
+    .block.drag-over { outline: 2px solid rgba(128,128,128,0.35); outline-offset: -2px; }
+    .block + .block { border-left: 0.5px solid rgba(0,0,0,0.08); }
+
+    .remove-x {
+      position: absolute;
+      top: 5px; right: 7px;
+      font-size: 12px;
+      opacity: 0;
+      cursor: pointer;
+      line-height: 1;
+      transition: opacity 0.1s;
+    }
+    .block:hover .remove-x { opacity: 0.45; }
+    .remove-x:hover { opacity: 0.9 !important; }
+
+    .block-type    { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+    .block-text    { font-size: 21px; font-weight: 500; margin-bottom: 3px; letter-spacing: -0.01em; }
+    .block-meaning { font-size: 11px; opacity: 0.75; }
+
+    .pre-block  { background: var(--purple-light); color: var(--purple-text); }
+    .pre-block  .block-type { color: var(--purple-dark); }
+    .root-block { background: var(--teal-light);   color: var(--teal-text); }
+    .root-block .block-type { color: var(--teal-dark); }
+    .suf-block  { background: var(--coral-light);  color: var(--coral-text); }
+    .suf-block  .block-type { color: var(--coral-dark); }
+
+    .result {
+      background: var(--bg2);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.1rem;
+      margin-bottom: 0.75rem;
+      min-height: 56px;
+      transition: background 0.3s;
+    }
+    .result.is-real { background: var(--teal-light); }
+    .result-word       { font-size: 20px; font-weight: 500; margin-bottom: 3px; letter-spacing: -0.01em; color: var(--text); }
+    .result-verdict    { font-size: 13px; color: var(--text2); }
+    .result-real       { color: var(--teal-dark); }
+    .result-definition { font-size: 13px; color: var(--text2); margin-top: 5px; font-style: italic; }
+    .result-pos        { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6px; }
+
+    .clear-btn {
+      font-size: 12px;
+      color: var(--text3);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .clear-btn:hover { color: var(--text2); }
+  </style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" title="toggle dark mode">☽</button>
+<div class="container">
+
+  <header>
+    <h1>glottle</h1>
+    <p>use morphemes to build words</p>
+  </header>
+
+  <div class="section">
+    <div class="shelf-label">prefixes</div>
+    <div class="search-row"><input class="search-input" placeholder="search prefixes…" oninput="filterShelf('pre',this.value)" /></div>
+    <div class="shelf" id="pre-shelf"></div>
+  </div>
+
+  <div class="section">
+    <div class="shelf-label">roots</div>
+    <div class="search-row"><input class="search-input" placeholder="search roots…" oninput="filterShelf('root',this.value)" /></div>
+    <div class="shelf" id="root-shelf"></div>
+  </div>
+
+  <div class="section">
+    <div class="shelf-label">suffixes</div>
+    <div class="search-row"><input class="search-input" placeholder="search suffixes…" oninput="filterShelf('suf',this.value)" /></div>
+    <div class="shelf" id="suf-shelf"></div>
+  </div>
+
+  <div class="assembly-label-row">
+    <div class="shelf-label" style="margin-bottom:0;">your word</div>
+    <span class="assembly-hint">drag to reorder within type · click × to remove</span>
+  </div>
+  <div class="assembly" id="assembly"><div class="assembly-empty">click pieces above to build a word</div></div>
+  <div class="result" id="result"><span style="font-size:13px;font-style:italic;color:var(--text3);">nothing yet</span></div>
+  <button class="clear-btn" onclick="clearAll()">clear</button>
+
+</div>
+<script>
+const SUGGESTIONS = 10;
+const TYPE_ORDER  = { pre: 0, root: 1, suf: 2 };
+let selected   = [];
+let uidCounter = 0;
+let dragUid    = null;
+let queries    = { pre: "", root: "", suf: "" };
+
+const dictCache = {};  // word → api result, cached to avoid repeated fetches
+
+let MORPHEMES = null;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function init() {
+  try {
+    const res = await fetch("morpheme_data.json");
+    if (!res.ok) throw new Error();
+    MORPHEMES = await res.json();
+  } catch {
+    MORPHEMES = FALLBACK;
+  }
+  MORPHEMES.prefixes = shuffle(MORPHEMES.prefixes);
+  MORPHEMES.roots    = shuffle(MORPHEMES.roots);
+  MORPHEMES.suffixes = shuffle(MORPHEMES.suffixes);
+  renderShelves();
+  render();
+}
+
+function getKey(type) {
+  return type === "pre" ? "prefixes" : type === "root" ? "roots" : "suffixes";
+}
+
+function filterShelf(type, query) {
+  queries[type] = query.toLowerCase().trim();
+  renderShelf(type);
+}
+
+function renderShelf(type) {
+  const key   = getKey(type);
+  const q     = queries[type];
+  const shelf = document.getElementById(type + "-shelf");
+  const all   = MORPHEMES[key];
+
+  let matches;
+  if (!q) {
+    matches = all.slice(0, SUGGESTIONS);
+  } else {
+    const scored = all
+      .map(m => {
+        const f  = m.form;
+        const d  = m.display.toLowerCase();
+        const me = m.meaning.toLowerCase();
+        const or = m.origin.toLowerCase();
+        if (f === q || d === q || d === q + "-" || d === "-" + q)  return { m, score: 0 };
+        if (f.startsWith(q) || d.startsWith(q))                    return { m, score: 1 };
+        if (me.startsWith(q) || or.startsWith(q))                  return { m, score: 2 };
+        if (f.includes(q) || d.includes(q))                        return { m, score: 3 };
+        if (me.includes(q) || or.includes(q))                      return { m, score: 4 };
+        return null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.score - b.score);
+    matches = scored.map(s => s.m).slice(0, SUGGESTIONS);
+  }
+
+  if (matches.length === 0) {
+    shelf.innerHTML = `<span class="no-results">no matches</span>`;
+    return;
+  }
+
+  shelf.innerHTML = matches.map(m => {
+    const idx  = all.indexOf(m);
+    const used = selected.some(s => s.type === type && s.idx === idx);
+    return `<span class="tile ${type}-tile${used ? " used" : ""}" id="tile-${type}-${idx}" onclick="togglePart('${type}',${idx})">${m.display}</span>`;
+  }).join("");
+}
+
+function renderShelves() { ["pre","root","suf"].forEach(renderShelf); }
+
+function togglePart(type, idx) {
+  const existing = selected.find(s => s.type === type && s.idx === idx);
+  if (existing) {
+    removePart(existing.uid);
+  } else {
+    addPart(type, idx);
+  }
+}
+
+function addPart(type, idx) {
+  if (selected.some(s => s.type === type && s.idx === idx)) return;
+  const m     = MORPHEMES[getKey(type)][idx];
+  const order = selected.filter(s => s.type === type).length;
+  selected.push({ type, idx, m, order, uid: String(uidCounter++) });
+  renderShelves();
+  render();
+}
+
+function removePart(uid) {
+  const i = selected.findIndex(s => s.uid === uid);
+  if (i < 0) return;
+  const type = selected[i].type;
+  selected.splice(i, 1);
+  selected.filter(s => s.type === type).forEach((s, j) => s.order = j);
+  renderShelves();
+  render();
+}
+
+function clearAll() {
+  selected = [];
+  queries  = { pre: "", root: "", suf: "" };
+  document.querySelectorAll(".search-input").forEach(el => el.value = "");
+  MORPHEMES.prefixes = shuffle(MORPHEMES.prefixes);
+  MORPHEMES.roots    = shuffle(MORPHEMES.roots);
+  MORPHEMES.suffixes = shuffle(MORPHEMES.suffixes);
+  renderShelves();
+  render();
+}
+
+function orderedSelected() {
+  return [...selected].sort((a, b) => {
+    if (TYPE_ORDER[a.type] !== TYPE_ORDER[b.type]) return TYPE_ORDER[a.type] - TYPE_ORDER[b.type];
+    return a.order - b.order;
+  });
+}
+
+let renderToken = 0;
+
+async function render() {
+  const token    = ++renderToken;
+  const assembly = document.getElementById("assembly");
+  const result   = document.getElementById("result");
+  const ord      = orderedSelected();
+
+  if (ord.length === 0) {
+    assembly.innerHTML = '<div class="assembly-empty">click pieces above to build a word</div>';
+    result.className   = "result";
+    result.innerHTML   = '<span style="font-size:13px;font-style:italic;color:var(--text3);">nothing yet</span>';
+    return;
+  }
+
+  assembly.innerHTML = ord.map(s => {
+    const cls       = s.type === "pre" ? "pre-block" : s.type === "root" ? "root-block" : "suf-block";
+    const typeLabel = s.type === "pre" ? "prefix" : s.type === "root" ? "root" : "suffix";
+    return `<div class="block ${cls}" draggable="true" data-uid="${s.uid}"
+      ondragstart="onDragStart(event,'${s.uid}')"
+      ondragover="onDragOver(event,'${s.uid}')"
+      ondrop="onDrop(event,'${s.uid}')"
+      ondragend="onDragEnd()">
+      <span class="remove-x" onclick="removePart('${s.uid}')">&#x2715;</span>
+      <div class="block-type">${typeLabel}</div>
+      <div class="block-text">${s.m.display}</div>
+      <div class="block-meaning">"${s.m.meaning}"</div>
+    </div>`;
+  }).join("");
+
+  const word    = ord.map(s => s.m.form).join("");
+  const meaning = ord.map(s => s.m.meaning).join(" + ");
+  const origins = [...new Set(ord.map(s => s.m.origin))].join(" & ");
+
+  // Show provisional state immediately
+  result.className = "result";
+  result.innerHTML = `<div class="result-word">${word}</div>
+    <div class="result-verdict" style="color:var(--text3);font-style:italic;">looking up…</div>`;
+
+  // Fetch with cache
+  let entry = dictCache[word];
+  if (entry === undefined) {
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+      entry = res.ok ? await res.json() : null;
+    } catch { entry = null; }
+    dictCache[word] = entry;
+  }
+
+  if (token !== renderToken) return; // selection changed while fetching
+
+  if (entry && Array.isArray(entry) && entry.length > 0) {
+    const m1  = entry[0].meanings?.[0];
+    const def = m1?.definitions?.[0]?.definition || "";
+    const pos = m1?.partOfSpeech || "";
+    result.className = "result is-real";
+    result.innerHTML = `<div class="result-word">${word}</div>
+      <div class="result-verdict result-real">real word ✓ &nbsp;·&nbsp; ${origins}</div>
+      ${pos ? `<div class="result-pos">${pos}</div>` : ""}
+      ${def ? `<div class="result-definition">${def}</div>` : ""}`;
+  } else {
+    result.className = "result";
+    result.innerHTML = `<div class="result-word">${word}</div>
+      <div class="result-verdict">coined — could mean: "${meaning}" — ${origins}</div>`;
+  }
+}
+
+function onDragStart(e, uid) {
+  dragUid = uid;
+  setTimeout(() => document.querySelector(`[data-uid="${uid}"]`)?.classList.add("dragging"), 0);
+}
+function onDragOver(e, uid) {
+  e.preventDefault();
+  document.querySelectorAll(".block").forEach(b => b.classList.remove("drag-over"));
+  if (uid !== dragUid) document.querySelector(`[data-uid="${uid}"]`)?.classList.add("drag-over");
+}
+function onDrop(e, targetUid) {
+  e.preventDefault();
+  if (!dragUid || dragUid === targetUid) return;
+  const src = selected.find(s => s.uid === dragUid);
+  const tgt = selected.find(s => s.uid === targetUid);
+  if (!src || !tgt || src.type !== tgt.type) return;
+  [src.order, tgt.order] = [tgt.order, src.order];
+  render();
+}
+function onDragEnd() {
+  document.querySelectorAll(".block").forEach(b => b.classList.remove("dragging","drag-over"));
+  dragUid = null;
+}
+
+const FALLBACK = {
+  prefixes: [
+    {form:"auto",display:"auto-",meaning:"self",origin:"Ancient Greek"},
+    {form:"tele",display:"tele-",meaning:"far off",origin:"Ancient Greek"},
+    {form:"micro",display:"micro-",meaning:"small",origin:"Ancient Greek"},
+    {form:"macro",display:"macro-",meaning:"large",origin:"Ancient Greek"},
+    {form:"bio",display:"bio-",meaning:"life",origin:"Ancient Greek"},
+    {form:"geo",display:"geo-",meaning:"earth",origin:"Ancient Greek"},
+    {form:"photo",display:"photo-",meaning:"light",origin:"Ancient Greek"},
+    {form:"thermo",display:"thermo-",meaning:"heat",origin:"Ancient Greek"},
+    {form:"hydro",display:"hydro-",meaning:"water",origin:"Ancient Greek"},
+    {form:"mono",display:"mono-",meaning:"one",origin:"Ancient Greek"},
+    {form:"poly",display:"poly-",meaning:"many",origin:"Ancient Greek"},
+    {form:"pseudo",display:"pseudo-",meaning:"false",origin:"Ancient Greek"},
+    {form:"neo",display:"neo-",meaning:"new",origin:"Ancient Greek"},
+    {form:"meta",display:"meta-",meaning:"beyond",origin:"Ancient Greek"},
+    {form:"para",display:"para-",meaning:"beside",origin:"Ancient Greek"},
+    {form:"anti",display:"anti-",meaning:"against",origin:"Ancient Greek"},
+    {form:"hyper",display:"hyper-",meaning:"over",origin:"Ancient Greek"},
+    {form:"hypo",display:"hypo-",meaning:"under",origin:"Ancient Greek"},
+    {form:"chrono",display:"chrono-",meaning:"time",origin:"Ancient Greek"},
+    {form:"phil",display:"phil-",meaning:"loving",origin:"Ancient Greek"},
+    {form:"mis",display:"mis-",meaning:"wrong",origin:"Old English"},
+    {form:"re",display:"re-",meaning:"again",origin:"Latin"},
+    {form:"pre",display:"pre-",meaning:"before",origin:"Latin"},
+    {form:"post",display:"post-",meaning:"after",origin:"Latin"},
+    {form:"sub",display:"sub-",meaning:"under",origin:"Latin"},
+  ],
+  roots: [
+    {form:"graph",display:"graph",meaning:"write",origin:"Ancient Greek"},
+    {form:"phone",display:"phone",meaning:"sound",origin:"Ancient Greek"},
+    {form:"scope",display:"scope",meaning:"look at",origin:"Ancient Greek"},
+    {form:"logy",display:"logy",meaning:"study of",origin:"Ancient Greek"},
+    {form:"nomy",display:"nomy",meaning:"law",origin:"Ancient Greek"},
+    {form:"meter",display:"meter",meaning:"measure",origin:"Ancient Greek"},
+    {form:"morph",display:"morph",meaning:"form",origin:"Ancient Greek"},
+    {form:"path",display:"path",meaning:"feeling",origin:"Ancient Greek"},
+    {form:"chron",display:"chron",meaning:"time",origin:"Ancient Greek"},
+    {form:"dem",display:"dem",meaning:"people",origin:"Ancient Greek"},
+    {form:"arch",display:"arch",meaning:"rule",origin:"Ancient Greek"},
+    {form:"crat",display:"crat",meaning:"power",origin:"Ancient Greek"},
+    {form:"anthrop",display:"anthrop",meaning:"human",origin:"Ancient Greek"},
+    {form:"cosm",display:"cosm",meaning:"world",origin:"Ancient Greek"},
+    {form:"nom",display:"nom",meaning:"name",origin:"Greek/Latin"},
+    {form:"port",display:"port",meaning:"carry",origin:"Latin"},
+    {form:"vert",display:"vert",meaning:"turn",origin:"Latin"},
+    {form:"dict",display:"dict",meaning:"speak",origin:"Latin"},
+    {form:"scrib",display:"scrib",meaning:"write",origin:"Latin"},
+    {form:"aud",display:"aud",meaning:"hear",origin:"Latin"},
+    {form:"vis",display:"vis",meaning:"see",origin:"Latin"},
+    {form:"mit",display:"mit",meaning:"send",origin:"Latin"},
+    {form:"spec",display:"spec",meaning:"look",origin:"Latin"},
+    {form:"vit",display:"vit",meaning:"life",origin:"Latin"},
+  ],
+  suffixes: [
+    {form:"ology",display:"-ology",meaning:"study of",origin:"Ancient Greek"},
+    {form:"graphy",display:"-graphy",meaning:"writing",origin:"Ancient Greek"},
+    {form:"phobia",display:"-phobia",meaning:"fear of",origin:"Ancient Greek"},
+    {form:"mania",display:"-mania",meaning:"obsession",origin:"Ancient Greek"},
+    {form:"meter",display:"-meter",meaning:"measure",origin:"Ancient Greek"},
+    {form:"scope",display:"-scope",meaning:"viewer",origin:"Ancient Greek"},
+    {form:"cracy",display:"-cracy",meaning:"rule by",origin:"Ancient Greek"},
+    {form:"pathy",display:"-pathy",meaning:"feeling",origin:"Ancient Greek"},
+    {form:"morphic",display:"-morphic",meaning:"having a form",origin:"Ancient Greek"},
+    {form:"ic",display:"-ic",meaning:"relating to",origin:"Latin/Greek"},
+    {form:"al",display:"-al",meaning:"pertaining to",origin:"Latin"},
+    {form:"ous",display:"-ous",meaning:"full of",origin:"Latin"},
+    {form:"tion",display:"-tion",meaning:"act of",origin:"Latin"},
+    {form:"ism",display:"-ism",meaning:"belief",origin:"Greek/Latin"},
+    {form:"ist",display:"-ist",meaning:"one who",origin:"Greek/Latin"},
+    {form:"fy",display:"-fy",meaning:"to make",origin:"Latin"},
+    {form:"ive",display:"-ive",meaning:"tending to",origin:"Latin"},
+    {form:"ly",display:"-ly",meaning:"in the manner of",origin:"Old English"},
+    {form:"ness",display:"-ness",meaning:"state of",origin:"Old English"},
+    {form:"less",display:"-less",meaning:"without",origin:"Old English"},
+    {form:"ful",display:"-ful",meaning:"full of",origin:"Old English"},
+    {form:"ment",display:"-ment",meaning:"result of",origin:"Latin"},
+    {form:"ary",display:"-ary",meaning:"relating to",origin:"Latin"},
+    {form:"ure",display:"-ure",meaning:"process",origin:"Latin"},
+    {form:"y",display:"-y",meaning:"having quality of",origin:"Old English"},
+    {form:"er",display:"-er",meaning:"one who",origin:"Old English"},
+  ]
+};
+
+// Theme handling
+function applyTheme(dark) {
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  document.getElementById("theme-btn").textContent = dark ? "☀" : "☽";
+}
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const next = !isDark;
+  localStorage.setItem("theme", next ? "dark" : "light");
+  applyTheme(next);
+}
+// On load: respect saved preference, else system preference
+(function() {
+  const saved = localStorage.getItem("theme");
+  const sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(saved ? saved === "dark" : sysDark);
+})();
+
+init();
+</script>
+</body>
+</html>
